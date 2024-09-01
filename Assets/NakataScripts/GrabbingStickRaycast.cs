@@ -7,7 +7,7 @@ using System;
 
 public class GrabbingStickRaycast : MonoBehaviour
 {
-    [SerializeField] Transform thumbProximal;
+    [SerializeField] Transform thumbProximal;   
     [SerializeField] Transform thumbTip;
     [SerializeField] Transform thumbMiddle;
     [SerializeField] Transform rightHandCenter;
@@ -24,7 +24,6 @@ public class GrabbingStickRaycast : MonoBehaviour
 
     void Update()
     {
-        // Calculate normal direction
         Vector3 normal = CalculatePlaneNormal(normalPostions[0].position, normalPostions[1].position, normalPostions[2].position);
         Vector3 rayStart = thumbMiddle.position;
         Vector3 rayEnd = thumbMiddle.position + normal * calibrationDistance;
