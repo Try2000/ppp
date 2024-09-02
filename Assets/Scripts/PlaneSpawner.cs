@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Meta.XR.MRUtilityKit;
 using System.Linq;
+using TMPro;
 
 
 public class PlaneAndObjectSpawner : MonoBehaviour
@@ -22,7 +23,7 @@ public class PlaneAndObjectSpawner : MonoBehaviour
     private float bendThresholdAngle = 15.0f; // 角度阈值，降低阈值以提高检测敏感性
     private Dictionary<OVRSkeleton.BoneId, Transform> boneTransforms = new Dictionary<OVRSkeleton.BoneId, Transform>();
     private bool skeletonInitialized = false;
-    private float objectOffsetFromHand = 0.1f; // 对象与手部的偏移距离
+    private float objectOffsetFromHand = 0.15f; // 对象与手部的偏移距离
     private float followSpeed = 5f;     // 跟随速度
     private float rotationSpeed = 5f;   // 旋转速度
     private float inertia = 0.1f;       // 惯性系数
@@ -33,7 +34,7 @@ public class PlaneAndObjectSpawner : MonoBehaviour
     private bool isHandTracked = true;
     private Vector3 deskPosition;
 
-    private float attachmentDistance = 0.15f; // 少于这个距离的时候然对象跟随手部移动
+    private float attachmentDistance = 0.2f; // 少于这个距离的时候然对象跟随手部移动
     private bool isAttached = false; // 用于判断对象是否已经附加
     private float eatDistance = 0.3f; // 距离阈值，例如 10cm
     private bool isInitialized = false; // 标志位
@@ -49,6 +50,12 @@ public class PlaneAndObjectSpawner : MonoBehaviour
     public GameObject bottle2;//放在桌上的瓶子
     public GameObject bottle3;//放在桌上的瓶子
     public GameObject bottle4;//放在桌上的瓶子
+
+    public LineRenderer lineRenderer;
+    private Transform[] normalPostions;
+    private float calibrationDistance = 2f;
+    private float detectionRange = 0.5f;
+    public bool isDebugMode;
     IEnumerator Start()
     {
         // 等待几帧
@@ -103,6 +110,8 @@ public class PlaneAndObjectSpawner : MonoBehaviour
                     {
                         // 检测到嘴巴从闭合变为张开
                         isMouthOpen = true;
+                        sendSerialData.SendData("open");
+                  
                         mouthOpenTime = Time.time;
                     }
                 }
@@ -169,7 +178,12 @@ public class PlaneAndObjectSpawner : MonoBehaviour
             Debug.Log($"Ring Finger Bent: {isRingFingerBent}");
             Debug.Log($"Pinky Finger Bent: {isPinkyFingerBent}");
 
-            Transform Hand_Middle3Transform = GetBoneTransform(OVRSkeleton.BoneId.Hand_Middle3);
+            Transform Hand_Middle3Transform = GetBoneTransform(OVRSkeleton.BoneId.Hand_Index1);
+          // Transform thumbMiddle = GetBoneTransform(OVRSkeleton.BoneId.Hand_Thumb2);
+             Transform Hand_Index1Transform = GetBoneTransform(OVRSkeleton.BoneId.Hand_Index1);
+             Transform Hand_Index2Transform = GetBoneTransform(OVRSkeleton.BoneId.Hand_Index2);
+             Transform Hand_Index3Transform = GetBoneTransform(OVRSkeleton.BoneId.Hand_Index3);
+
             if (isMiddleFingerBent&& isRingFingerBent&& isPinkyFingerBent && !isAttached) 
             {
                 // 计算手和对象之间的距离
@@ -179,12 +193,6 @@ public class PlaneAndObjectSpawner : MonoBehaviour
                 // 获取手指的正前方向
                 Vector3 forwardDirection = Hand_Middle3Transform.forward.normalized;
                     
-                // 使用世界坐标系中的上方向作为参考方向（你也可以选择其他方向）
-                Vector3 upDirection = Vector3.up;
-                // 计算垂直于手指正前方向的向量
-                Vector3 perpendicularDirection = Vector3.Cross(forwardDirection, upDirection).normalized;
-                // 获取手指的反方向
-                //Vector3 backwardDirection = -forwardDirection;
                 float distanceToSurface = distanceToHand; // 默认值为中心距离
                 if (meshCollider != null)
                 {
@@ -214,9 +222,36 @@ public class PlaneAndObjectSpawner : MonoBehaviour
                     SpawnedObject.transform.localRotation = Quaternion.identity;
 
                 }
- 
             }
+
+           /*if (isMiddleFingerBent&& isRingFingerBent&& isPinkyFingerBent && !isAttached)
+             {
+                Vector3 normal = CalculatePlaneNormal(normalPostions[0].position, normalPostions[1].position, normalPostions[2].position);
+                Vector3 rayStart = thumbMiddle.position;
+                Vector3 rayEnd = thumbMiddle.position + normal * calibrationDistance;
+ 
+                // Perform raycast
+                if (Physics.Raycast(rayStart, normal, out RaycastHit hit, calibrationDistance))
+                {
+                    float hitDistance = Vector3.Distance(rayStart, hit.point);
+                    if (hitDistance >= calibrationDistance - detectionRange)
+                    {
+                         SpawnedObject.transform.SetParent(thumbMiddle);
+                    }
+                }
+             }*/
         }
+    }
+    
+     
+    Vector3 CalculatePlaneNormal(Vector3 p1, Vector3 p2, Vector3 p3)
+    {
+        // Calculate vectors from the points
+        Vector3 v1 = p2 - p1;
+        Vector3 v2 = p3 - p1;
+
+        // Calculate the normal using the cross product
+        return Vector3.Cross(v2, v1).normalized;
     }
     // 检查手是否在摄像头视野内
     bool IsHandVisible(Transform IndexTipTransform)
@@ -298,17 +333,9 @@ public class PlaneAndObjectSpawner : MonoBehaviour
                     {
                         Renderer renderer = deskPlane.GetComponent<Renderer>();
                         renderer.enabled = false; // 禁用渲染器，完全隐藏平面
-                        renderer.material = gridMaterial;
+                        //renderer.material = gridMaterial;
                         //renderer.material.color = new Color(renderer.material.color.r, renderer.material.color.g, renderer.material.color.b, 0f); // 设置透明度
-                        renderer.material.SetFloat("_Mode", 2); // 2 = Transparent mode
-                        renderer.material.color = new Color(renderer.material.color.r, renderer.material.color.g, renderer.material.color.b, 0f); // 设置透明度
-                        renderer.material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        renderer.material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        renderer.material.SetInt("_ZWrite", 0);
-                        renderer.material.DisableKeyword("_ALPHATEST_ON");
-                        renderer.material.EnableKeyword("_ALPHABLEND_ON");
-                        renderer.material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        renderer.material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                         
                     }
                     // 使生成的平面仅用于可视化（如需要可以禁用其碰撞器）
                     //Destroy(deskPlane.GetComponent<Collider>());

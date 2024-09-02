@@ -15,7 +15,25 @@ public class SendSerialData : MonoBehaviour
     void Start()
     {
         err_text.enabled = true;  // エラーテキストを非表示に設定
+        using (AndroidJavaClass intentClass = new AndroidJavaClass("android.content.Intent"))
+        using (AndroidJavaObject intentObject = new AndroidJavaObject("android.content.Intent"))
+        using (AndroidJavaClass pendingIntentClass = new AndroidJavaClass("android.app.PendingIntent"))
+        {
+            // FLAG_IMMUTABLE フラグを指定する場合
+            int flags = pendingIntentClass.GetStatic<int>("FLAG_IMMUTABLE");
+            
+            // Create a PendingIntent with the IMMUTABLE flag
+            AndroidJavaObject pendingIntent = pendingIntentClass.CallStatic<AndroidJavaObject>(
+                "getBroadcast", 
+                AndroidJNI.AttachCurrentThread(),  // Context
+                0,                               // Request code
+                intentObject,                     // Intent
+                flags                            // Flags
+            );
 
+            // Log the pendingIntent to verify creation
+            Debug.Log("PendingIntent created: " + pendingIntent);
+        }
         TryConnect();
     }
     public void TryConnect()
@@ -75,6 +93,7 @@ public class SendSerialData : MonoBehaviour
                 if (androidJavaClass_ != null)
                 {
                     isWriteSuccess = androidJavaClass_.CallStatic<bool>("Write", data);  // データを送信
+                    if(isWriteSuccess) errMsg_ = data;
                 }
                 else
                 {
